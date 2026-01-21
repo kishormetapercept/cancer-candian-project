@@ -283,21 +283,15 @@ const convertPdfsZipToZip = async (req, res, next) => {
       await convertPdfToPng(pdfPath, outputDir);
     }
 
-    // Create output zip
+    // Create output zip from flat structure
     const outputZip = new AdmZip();
-    const addToZip = (dir, zipPath = '') => {
-      const files = fs.readdirSync(dir);
-      files.forEach(file => {
-        const fullPath = path.join(dir, file);
-        const zipFilePath = path.join(zipPath, file);
-        if (fs.statSync(fullPath).isDirectory()) {
-          addToZip(fullPath, zipFilePath);
-        } else {
-          outputZip.addLocalFile(fullPath, zipPath);
-        }
-      });
-    };
-    addToZip(outputDir);
+    const files = fs.readdirSync(outputDir);
+    files.forEach(file => {
+      const fullPath = path.join(outputDir, file);
+      if (fs.statSync(fullPath).isFile()) {
+        outputZip.addLocalFile(fullPath);
+      }
+    });
 
     // Clean up temp files
     fs.unlinkSync(req.file.path);
