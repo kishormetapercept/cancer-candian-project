@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -10,9 +11,17 @@
   "keywords": [],
   "description": "",
   "dependencies": {
+    "adm-zip": "^0.5.16",
+    "canvas": "^3.2.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "morgan": "^1.10.1"
+    "fs-extra": "^11.3.3",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "pdf-poppler": "^0.2.3",
+    "pdf2pic": "^3.2.0",
+    "pdfjs-dist": "^5.4.530",
+    "yauzl": "^3.2.0"
   }
 }

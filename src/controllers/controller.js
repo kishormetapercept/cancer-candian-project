@@ -2,10 +2,22 @@ const userService = require("../services/service");
 const multer = require("multer");
 const fs = require("fs");
 const yauzl = require("yauzl");
+const AdmZip = require("adm-zip");
 const { Worker, isMainThread, parentPort, workerData } = require("worker_threads");
 const path = require("path");
+const { convertPdfToPng } = require("../utils/pdfConverter");
 
 const upload = multer({ dest: "uploads/" });
+const pdfUpload = multer({ 
+  dest: "uploads/pdfs/",
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
+    }
+  }
+});
 
 const getUsers = async (req, res, next) => {
   try {
@@ -232,8 +244,80 @@ if (!isMainThread) {
   parentPort.postMessage({ links, files: processedFiles, directoryCount, contentTags: allContentTags });
 }
 
+const convertPdfsZipToZip = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No zip file uploaded"
+      });
+    }
+
+    const tempDir = path.join(process.cwd(), 'temp', Date.now().toString());
+    const outputDir = path.join(process.cwd(), 'pdfoutput');
+    
+    await fs.promises.mkdir(tempDir, { recursive: true });
+    await fs.promises.mkdir(outputDir, { recursive: true });
+
+    // Extract uploaded zip
+    const zip = new AdmZip(req.file.path);
+    zip.extractAllTo(tempDir, true);
+
+    // Find all PDF files
+    const pdfFiles = [];
+    const findPdfs = (dir) => {
+      const files = fs.readdirSync(dir);
+      files.forEach(file => {
+        const fullPath = path.join(dir, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+          findPdfs(fullPath);
+        } else if (file.toLowerCase().endsWith('.pdf')) {
+          pdfFiles.push(fullPath);
+        }
+      });
+    };
+    findPdfs(tempDir);
+
+    // Convert PDFs to PNGs
+    for (const pdfPath of pdfFiles) {
+      await convertPdfToPng(pdfPath, outputDir);
+    }
+
+    // Create output zip
+    const outputZip = new AdmZip();
+    const addToZip = (dir, zipPath = '') => {
+      const files = fs.readdirSync(dir);
+      files.forEach(file => {
+        const fullPath = path.join(dir, file);
+        const zipFilePath = path.join(zipPath, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+          addToZip(fullPath, zipFilePath);
+        } else {
+          outputZip.addLocalFile(fullPath, zipPath);
+        }
+      });
+    };
+    addToZip(outputDir);
+
+    // Clean up temp files
+    fs.unlinkSync(req.file.path);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+
+    // Send zip file
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename="converted-pdfs.zip"'
+    });
+    res.send(outputZip.toBuffer());
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUsers,
   uploadZip,
+  convertPdfsZipToZip,
   upload
 };

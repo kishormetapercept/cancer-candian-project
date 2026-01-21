@@ -21,6 +21,7 @@ app.get("/health", (req, res) => {
 
 /* ---------- API Routes ---------- */
 app.use("/api/users", routes);
+app.use("/api", routes);
 
 app.use((req, res, next) => {
   res.status(404).json({
